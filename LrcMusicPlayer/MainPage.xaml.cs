@@ -1,5 +1,4 @@
 ﻿using LrcMusicPlayer.Common;
-using LrcMusicDecoder;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,6 +23,8 @@ using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Media.Imaging;
+using flaclib;
+using FLACSource
 
 // The Split Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234234
 
@@ -56,6 +57,20 @@ namespace LrcMusicPlayer
         }
     }
 
+    public class MySliderValue : IValueConverter
+    {
+
+        public object Convert(object value, Type targetType, object parameter, string language) {
+            var newTime = TimeSpan.FromSeconds((double)value);
+            return string.Format("{0} / {1}", newTime.ToString("mm\\:ss"), 
+                MainPage.MyMediaElement.NaturalDuration.TimeSpan.ToString("mm\\:ss"));
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) {
+            throw new NotImplementedException();
+        }
+    }
+    
     /// <summary>
     /// A page that displays a group title, a list of items within the group, and details for
     /// the currently selected item.
@@ -70,32 +85,13 @@ namespace LrcMusicPlayer
         private int lastLrc = -1;
         private bool lyricFingerDown = false, itemListViewIsTapped = false, sliderPressed = false;
         private PlayStyle playMode = PlayStyle.RepeatOnce;
-        private static MediaElement MyMediaElement = null;
-
+        public static MediaElement MyMediaElement = null;
+        
         private NavigationHelper navigationHelper;
         private DispatcherTimer lrcTimer = new DispatcherTimer();
         private DispatcherTimer _timer;
         public static MainPage Current;
         private bool isInitialized = false;
-
-        public class TimeSpanConverter : IValueConverter
-        {
-            public object Convert(
-                object value, Type targetType,
-                object parameter, string language) {
-                string seconds = (string)value;
-                TimeSpan time = TimeSpan.FromSeconds(double.Parse(seconds));
-                return time.ToString("mm\\:ss");
-            }
-
-            public object ConvertBack(
-                 object value, Type targetType,
-                 object parameter, string language) {
-                string strValue = value as string;
-                var seconds = ((string)value).Split(':');
-                return int.Parse(seconds[0]) * 60 + int.Parse(seconds[1]);
-            }
-        }
 
         /// <summary>
         /// Indicates whether this scenario page is still active. Changes value during navigation 
@@ -121,7 +117,7 @@ namespace LrcMusicPlayer
             get { return this.navigationHelper; }
         }
         #endregion
-
+        
         #region Loading
         public MainPage() {
             this.InitializeComponent();
@@ -151,6 +147,7 @@ namespace LrcMusicPlayer
             timelineSlider.AddHandler(PointerPressedEvent, new PointerEventHandler(timelineSlider_PointerEntered), true);
             timelineSlider.AddHandler(PointerCaptureLostEvent, new PointerEventHandler(timelineSlider_PointerCaptureLost), true);
 
+            if (MyMediaElement == null || MyMediaElement.CurrentState == MediaElementState.Stopped) timelineSlider.IsEnabled = false;
             if (MyMediaElement == null) {
                 DependencyObject rootGrid = VisualTreeHelper.GetChild(Window.Current.Content, 0);
                 MyMediaElement = (MediaElement)VisualTreeHelper.GetChild(rootGrid, 0);
@@ -662,6 +659,7 @@ namespace LrcMusicPlayer
                     mainAlbumText.Text = "Few Moe Project";
                     lyricsPanel.Children.Clear();
                     mainCoverImage.Source = none;
+                    timelineSlider.IsEnabled = false;
                     break;
             }
             stateTextBlock.Text = MyMediaElement.CurrentState.ToString();
@@ -960,6 +958,7 @@ namespace LrcMusicPlayer
         private async Task SetNewMediaItem(int newItemIndex) {
             if (!systemMediaControls.IsEnabled) systemMediaControls.IsEnabled = true;
             if (!MyMediaElement.AutoPlay) MyMediaElement.AutoPlay = true;
+            if (!timelineSlider.IsEnabled) timelineSlider.IsEnabled = true;
             // enable Next button unless we're on last item of the playFileList
             if (newItemIndex >= Playlist.Items.Count - 1) {
                 systemMediaControls.IsNextEnabled = false;
@@ -987,6 +986,7 @@ namespace LrcMusicPlayer
             currentItem = Playlist.Items[newItemIndex];
             itemListView.ScrollIntoView(currentItem, ScrollIntoViewAlignment.Leading);
             StorageFile mediaFile = await currentItem.GetFile();
+
 
             lrcTimer.Stop();
             MyMediaElement.Tag = mediaFile.DisplayName;
@@ -1017,28 +1017,26 @@ namespace LrcMusicPlayer
                         }
                     stream = audioStream.AsRandomAccessStream();
                 }
-
             } catch (Exception e) {
-                // User may have navigated away from this scenario page to another scenario page 
+                // User may have navigated away from this scenario page to another scenario page
                 // before the async operation completed.
                 if (isThisPageActive) {
                     // If the file can't be opened, for this sample we will behave similar to the case of
-                    // setting a corrupted/invalid media file stream on the MediaElement (which triggers a 
-                    // MediaFailed event).  We abort any ongoing playback by nulling the MediaElement's 
-                    // source.  The user must press Next or Previous to move to a different media item, 
+                    // setting a corrupted/invalid media file stream on the MediaElement (which triggers a
+                    // MediaFailed event). We abort any ongoing playback by nulling the MediaElement's
+                    // source. The user must press Next or Previous to move to a different media item,
                     // or use the file picker to load a new set of files to play.
                     MyMediaElement.Source = null;
                 }
             }
-            // User may have navigated away from this scenario page to another scenario page 
+            // User may have navigated away from this scenario page to another scenario page
             // before the async operation completed. Check to make sure page is still active.
             if (!isThisPageActive) {
                 return;
             }
-
             if (stream != null) {
-                // We're about to change the MediaElement's source media, so put ourselves into a 
-                // "changing media" state.  We stay in that state until the new media is playing,
+                // We're about to change the MediaElement's source media, so put ourselves into a
+                // "changing media" state. We stay in that state until the new media is playing,
                 // loaded (if user has currently paused or stopped playback), or failed to load.
                 // At those points we will call OnChangingMediaEnded().
                 string MIMEtype = mediaFile.ContentType;
@@ -1072,7 +1070,9 @@ namespace LrcMusicPlayer
 
             lyricsScrollView.ChangeView(0, height - 240, lyricsScrollView.ZoomFactor);
         }
+        #endregion
 
+        #region MediaTransport
         private async void uiButton_Click(object sender, RoutedEventArgs e) {
             if (currentItem == null) {
                 if (itemListView.SelectedItem != null) {
@@ -1097,11 +1097,6 @@ namespace LrcMusicPlayer
                     await SetNewMediaItem(currentItemIndex - 1);
                     break;
             }
-        }
-        #endregion
-
-        private void pageRoot_SizeChanged(object sender, SizeChangedEventArgs e) {
-            itemDetailGrid.Width = itemDetail.ActualWidth;
         }
 
         private void VolumeSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) {
@@ -1139,8 +1134,15 @@ namespace LrcMusicPlayer
 
         private void timelineSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) {
             if (sliderPressed) {
-                MyMediaElement.Position = TimeSpan.FromSeconds(e.NewValue);
+                var newTime = TimeSpan.FromSeconds(e.NewValue);
+                MyMediaElement.Position = newTime;
+                MediaTimeNowText.Text = newTime.ToString("mm\\:ss");
             }
+        }
+        #endregion
+
+        private void pageRoot_SizeChanged(object sender, SizeChangedEventArgs e) {
+            itemDetailGrid.Width = itemDetail.ActualWidth;
         }
     }
 }

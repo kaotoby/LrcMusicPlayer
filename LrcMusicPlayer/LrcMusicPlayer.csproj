@@ -109,6 +109,7 @@
     <Compile Include="Common\FlacReader_x86.cs" />
     <Compile Include="Common\ObservableDictionary.cs" />
     <Compile Include="Common\PlayList.cs" />
+    <Compile Include="Common\PlayListItem.cs" />
     <Compile Include="Common\WavWriter.cs" />
     <Compile Include="ItemListPageView.xaml.cs">
       <DependentUpon>ItemListPageView.xaml</DependentUpon>
@@ -180,15 +181,21 @@
     <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="flaclib">
+      <HintPath>.\flaclib.winmd</HintPath>
+    </Reference>
+    <Reference Include="FLACSource">
+      <HintPath>.\FLACSource.winmd</HintPath>
+    </Reference>
+    <Reference Include="MetroMonkey">
+      <HintPath>.\MetroMonkey.winmd</HintPath>
+    </Reference>
+    <Reference Include="OGGSource">
+      <HintPath>.\OGGSource.winmd</HintPath>
+    </Reference>
     <Reference Include="TagLib.Portable">
       <HintPath>..\packages\TagLib.Portable.1.0.2-pre\lib\portable-net45+win8+wpa81\TagLib.Portable.dll</HintPath>
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\LrcMusicDecoder\LrcMusicDecoder.vcxproj">
-      <Project>{0071d109-6b4f-4c5b-b32e-f0fe5f77eca6}</Project>
-      <Name>LrcMusicDecoder</Name>
-    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '12.0' ">
     <VisualStudioVersion>12.0</VisualStudioVersion>
