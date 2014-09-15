@@ -124,13 +124,17 @@
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
+    <Content Include="OGGSource.dll" />
+    <None Include="FLACSource.winmd" />
     <None Include="LrcMusicPlayer_TemporaryKey.pfx" />
+    <None Include="OGGSource.winmd" />
     <None Include="packages.config" />
     <PRIResource Include="Strings\en-US\Resources.resw">
       <SubType>Designer</SubType>
     </PRIResource>
     <Content Include="Assets\Logo1000x1000.png" />
     <Content Include="Assets\nocover.mp3" />
+    <Content Include="FLACSource.dll" />
     <Content Include="Images\boarder.png" />
     <Content Include="Assets\Square310x310Logo.scale-100.png" />
     <Content Include="Assets\Wide310x150Logo.scale-100.png" />
