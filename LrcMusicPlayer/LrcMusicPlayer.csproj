@@ -105,8 +105,6 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Common\FlacReader_x64.cs" />
-    <Compile Include="Common\FlacReader_x86.cs" />
     <Compile Include="Common\ObservableDictionary.cs" />
     <Compile Include="Common\PlayList.cs" />
     <Compile Include="Common\PlayListItem.cs" />
@@ -126,9 +124,6 @@
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
-    <Content Include="LibFlac.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <None Include="LrcMusicPlayer_TemporaryKey.pfx" />
     <None Include="packages.config" />
     <PRIResource Include="Strings\en-US\Resources.resw">
@@ -181,14 +176,8 @@
     <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="flaclib">
-      <HintPath>.\flaclib.winmd</HintPath>
-    </Reference>
     <Reference Include="FLACSource">
       <HintPath>.\FLACSource.winmd</HintPath>
-    </Reference>
-    <Reference Include="MetroMonkey">
-      <HintPath>.\MetroMonkey.winmd</HintPath>
     </Reference>
     <Reference Include="OGGSource">
       <HintPath>.\OGGSource.winmd</HintPath>
@@ -196,6 +185,11 @@
     <Reference Include="TagLib.Portable">
       <HintPath>..\packages\TagLib.Portable.1.0.2-pre\lib\portable-net45+win8+wpa81\TagLib.Portable.dll</HintPath>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <SDKReference Include="Microsoft.VCLibs, Version=11.0">
+      <Name>Microsoft Visual C++ Runtime Package</Name>
+    </SDKReference>
   </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '12.0' ">
     <VisualStudioVersion>12.0</VisualStudioVersion>

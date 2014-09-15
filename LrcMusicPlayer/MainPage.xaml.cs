@@ -23,8 +23,6 @@ using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Media.Imaging;
-using flaclib;
-using FLACSource
 
 // The Split Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=234234
 
@@ -86,6 +84,10 @@ namespace LrcMusicPlayer
         private bool lyricFingerDown = false, itemListViewIsTapped = false, sliderPressed = false;
         private PlayStyle playMode = PlayStyle.RepeatOnce;
         public static MediaElement MyMediaElement = null;
+        private static MediaExtensionManager _extensionManager = null;
+        public static MediaExtensionManager ExtensionManager {
+            get { return _extensionManager; }
+        }
         
         private NavigationHelper navigationHelper;
         private DispatcherTimer lrcTimer = new DispatcherTimer();
@@ -156,6 +158,9 @@ namespace LrcMusicPlayer
                 MyMediaElement.MediaEnded += MyMediaElement_MediaEnded;
                 MyMediaElement.MediaFailed += MyMediaElement_MediaFailed;
                 VolumeSlider.Value = MyMediaElement.Volume * 100;
+                _extensionManager = new MediaExtensionManager();
+                _extensionManager.RegisterByteStreamHandler("FLACSource.FLACByteStreamHandler", ".flac", "audio/flac");
+                _extensionManager.RegisterByteStreamHandler("OGGSource.OGGByteStreamHandler", ".ogg", "audio/ogg");
             }
             if (Playlist == null) {
                 Playlist = await PlayList.LoadFromFile();
@@ -394,7 +399,7 @@ namespace LrcMusicPlayer
         //     http://msdn.microsoft.com/en-us/library/windows/apps/hh986969.aspx
         private static string[] supportedAudioFormats = new string[]
         {
-            ".3g2", ".3gp2", ".3gp", ".3gpp", ".m4a", ".mp4", ".asf", ".wma", ".aac", ".adt", ".adts", ".mp3", ".wav", ".ac3", ".ec3", ".flac", ".lrc"
+            ".3g2", ".3gp2", ".3gp", ".3gpp", ".m4a", ".mp4", ".asf", ".wma", ".aac", ".adt", ".adts", ".mp3", ".wav", ".ac3", ".ec3", ".flac", ".ogg", ".lrc"
         };
 
         /// <summary>
@@ -994,29 +999,29 @@ namespace LrcMusicPlayer
             IRandomAccessStream stream = null;
             try {
                 stream = await mediaFile.OpenAsync(FileAccessMode.Read);
-                if (mediaFile.FileType.ToLower() == ".flac") {
-                    MemoryStream audioStream = new MemoryStream();
-                    using (MemoryStream output = new MemoryStream())
-                    using (WavWriter wav = new WavWriter(output))
-                        if (IntPtr.Size == 8) {
-                            using (FlacReader_x64 flac = new FlacReader_x64(stream.AsStreamForRead(), wav)) {
-                                var s = new MemoryStream();
-                                flac.Process();
-                                output.Seek(0, SeekOrigin.Begin);
-                                output.CopyTo(audioStream);
-                                audioStream.Seek(0, SeekOrigin.Begin);
-                            }
-                        } else {
-                            using (FlacReader_x86 flac = new FlacReader_x86(stream.AsStreamForRead(), wav)) {
-                                var s = new MemoryStream();
-                                flac.Process();
-                                output.Seek(0, SeekOrigin.Begin);
-                                output.CopyTo(audioStream);
-                                audioStream.Seek(0, SeekOrigin.Begin);
-                            }
-                        }
-                    stream = audioStream.AsRandomAccessStream();
-                }
+                //if (mediaFile.FileType.ToLower() == ".flac") {
+                //    MemoryStream audioStream = new MemoryStream();
+                //    using (MemoryStream output = new MemoryStream())
+                //    using (WavWriter wav = new WavWriter(output))
+                //        if (IntPtr.Size == 8) {
+                //            using (FlacReader_x64 flac = new FlacReader_x64(stream.AsStreamForRead(), wav)) {
+                //                var s = new MemoryStream();
+                //                flac.Process();
+                //                output.Seek(0, SeekOrigin.Begin);
+                //                output.CopyTo(audioStream);
+                //                audioStream.Seek(0, SeekOrigin.Begin);
+                //            }
+                //        } else {
+                //            using (FlacReader_x86 flac = new FlacReader_x86(stream.AsStreamForRead(), wav)) {
+                //                var s = new MemoryStream();
+                //                flac.Process();
+                //                output.Seek(0, SeekOrigin.Begin);
+                //                output.CopyTo(audioStream);
+                //                audioStream.Seek(0, SeekOrigin.Begin);
+                //            }
+                //        }
+                //    stream = audioStream.AsRandomAccessStream();
+                //}
             } catch (Exception e) {
                 // User may have navigated away from this scenario page to another scenario page
                 // before the async operation completed.
@@ -1040,7 +1045,7 @@ namespace LrcMusicPlayer
                 // loaded (if user has currently paused or stopped playback), or failed to load.
                 // At those points we will call OnChangingMediaEnded().
                 string MIMEtype = mediaFile.ContentType;
-                if (MIMEtype == "audio/flac") MIMEtype = "audio/wav";
+                
                 MyMediaElement.SetSource(stream, MIMEtype);
             } else {
                 stateTextBlock.Text = "Can not open media";

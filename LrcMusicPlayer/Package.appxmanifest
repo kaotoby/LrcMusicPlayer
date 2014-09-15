@@ -43,4 +43,18 @@
       </Extensions>
     </Application>
   </Applications>
+  <Extensions>
+    <Extension Category="windows.activatableClass.inProcessServer">
+      <InProcessServer>
+        <Path>FLACSource.dll</Path>
+        <ActivatableClass ActivatableClassId="FLACSource.FLACByteStreamHandler" ThreadingModel="both"/>
+      </InProcessServer>
+    </Extension>
+    <Extension Category="windows.activatableClass.inProcessServer">
+      <InProcessServer>
+        <Path>OGGSource.dll</Path>
+        <ActivatableClass ActivatableClassId="OGGSource.OGGByteStreamHandler" ThreadingModel="both"/>
+      </InProcessServer>
+    </Extension>
+  </Extensions>
 </Package>
