@@ -105,10 +105,10 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Common\MyXamlControl.cs" />
     <Compile Include="Common\ObservableDictionary.cs" />
     <Compile Include="Common\PlayList.cs" />
     <Compile Include="Common\PlayListItem.cs" />
-    <Compile Include="Common\WavWriter.cs" />
     <Compile Include="ItemListPageView.xaml.cs">
       <DependentUpon>ItemListPageView.xaml</DependentUpon>
     </Compile>
@@ -125,9 +125,7 @@
       <SubType>Designer</SubType>
     </AppxManifest>
     <Content Include="OGGSource.dll" />
-    <None Include="FLACSource.winmd" />
     <None Include="LrcMusicPlayer_TemporaryKey.pfx" />
-    <None Include="OGGSource.winmd" />
     <None Include="packages.config" />
     <PRIResource Include="Strings\en-US\Resources.resw">
       <SubType>Designer</SubType>
@@ -170,10 +168,6 @@
     <Page Include="MainPage.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Themes\Generic.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
   <ItemGroup>
