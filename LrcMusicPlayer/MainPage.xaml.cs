@@ -28,6 +28,46 @@ using Windows.UI.Xaml.Media.Imaging;
 
 namespace LrcMusicPlayer
 {
+    public class MyListView : ListView
+    {
+        public event RightTappedEventHandler ItemRightTapped;
+
+        protected override DependencyObject GetContainerForItemOverride() {
+            var item = new MyListViewItem();
+            item.RightTapped += OnItemRightTapped;
+            return item;
+        }
+
+        protected virtual void OnItemRightTapped(object sender, RightTappedRoutedEventArgs args) {
+            if (ItemRightTapped != null)
+                ItemRightTapped(sender, args);
+            args.Handled = true;
+        }
+    }
+
+    public class MyListViewItem : ListViewItem
+    {
+        protected override void OnRightTapped(RightTappedRoutedEventArgs e) {
+            base.OnRightTapped(e);
+
+            // Stop 'swallowing' the event
+            e.Handled = false;
+        }
+    }
+
+    public class MySliderValue : IValueConverter
+    {
+
+        public object Convert(object value, Type targetType, object parameter, string language) {
+            var newTime = TimeSpan.FromSeconds((double)value);
+            return string.Format("{0} / {1}", newTime.ToString("mm\\:ss"), 
+                MainPage.MyMediaElement.NaturalDuration.TimeSpan.ToString("mm\\:ss"));
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) {
+            throw new NotImplementedException();
+        }
+    }
     
     /// <summary>
     /// A page that displays a group title, a list of items within the group, and details for
@@ -38,11 +78,16 @@ namespace LrcMusicPlayer
         #region Declar
         public static PlayList Playlist = null;
         private Dictionary<TimeSpan, string> lrcData;
+        private PlayListItem currentItem;
         private ImageSource none;
         private int lastLrc = -1;
         private bool lyricFingerDown = false, itemListViewIsTapped = false, sliderPressed = false;
-        private PlayList.PlayStyle playMode = PlayList.PlayStyle.RepeatOnce;
+        private PlayStyle playMode = PlayStyle.RepeatOnce;
         public static MediaElement MyMediaElement = null;
+        private static MediaExtensionManager _extensionManager = null;
+        public static MediaExtensionManager ExtensionManager {
+            get { return _extensionManager; }
+        }
         
         private NavigationHelper navigationHelper;
         private DispatcherTimer lrcTimer = new DispatcherTimer();
@@ -58,6 +103,11 @@ namespace LrcMusicPlayer
 
         // same type as returned from Windows.Storage.Pickers.FileOpenPicker.PickMultipleFilesAsync()
         //private IReadOnlyList<StorageFile> playFileList = null;
+
+        /// <summary>
+        /// index to current media item in playFileList
+        /// </summary>
+        private int currentItemIndex = -1;
 
         private SystemMediaTransportControls systemMediaControls = null;
 
@@ -108,6 +158,9 @@ namespace LrcMusicPlayer
                 MyMediaElement.MediaEnded += MyMediaElement_MediaEnded;
                 MyMediaElement.MediaFailed += MyMediaElement_MediaFailed;
                 VolumeSlider.Value = MyMediaElement.Volume * 100;
+                _extensionManager = new MediaExtensionManager();
+                _extensionManager.RegisterByteStreamHandler("FLACSource.FLACByteStreamHandler", ".flac", "audio/flac");
+                _extensionManager.RegisterByteStreamHandler("OGGSource.OGGByteStreamHandler", ".ogg", "audio/ogg");
             }
             if (Playlist == null) {
                 Playlist = await PlayList.LoadFromFile();
@@ -117,12 +170,7 @@ namespace LrcMusicPlayer
                     stateTextBlock.Text = "Stopped";
                 }
             } else {
-                if (MyMediaElement.Source == null) stateTextBlock.Text = "Stopped";
-                else {
-                    mainCoverImage.Source = Playlist.CurrentItem.Thumbnail;
-                    SetupTimer();
-                    SetupLyric();
-                }
+                if (currentItem == null) stateTextBlock.Text = "Stopped";
             }
             itemListView.ItemsSource = Playlist.Items;
         }
@@ -272,6 +320,10 @@ namespace LrcMusicPlayer
             // we need to remove the ButtonPressed event handler specific to this scenario page before 
             // user navigates away to another scenario in the sample.
             systemMediaControls.ButtonPressed -= systemMediaControls_ButtonPressed;
+
+            // Perform other cleanup for this scenario page.
+            //MyMediaElement.Source = null;
+            currentItemIndex = -1;
         }
         #endregion
 
@@ -307,13 +359,14 @@ namespace LrcMusicPlayer
             var items = itemListView.SelectedItems.Select(c => c as PlayListItem).ToArray();
 
             for (int i = 0; i < items.Count(); i++) {
-                if (items[i] == Playlist.CurrentItem) {
+                if (items[i] == currentItem) {
                     currentDeleted = true;
                     continue;
                 }
                 Playlist.Items.Remove(items[i]);
             }
-            if (currentDeleted) Playlist.Items.Remove(Playlist.CurrentItem);
+            currentItemIndex = Playlist.Items.IndexOf(currentItem);
+            if (currentDeleted) Playlist.Items.Remove(currentItem);
 
             await Playlist.Save();
         }
@@ -326,8 +379,9 @@ namespace LrcMusicPlayer
             if (LeftPanel.Visibility == Visibility.Visible) {
                 LeftPanel.Visibility = Visibility.Collapsed;
                 itemListView.SelectionMode = ListViewSelectionMode.Single;
-                itemListView.SelectedIndex = Playlist.CurrentIndex;
+                itemListView.SelectedIndex = currentItemIndex;
                 itemListView.AllowDrop = itemListView.IsSwipeEnabled = itemListView.CanReorderItems = false;
+                currentItemIndex = Playlist.Items.IndexOf(currentItem);
             }
         }
 
@@ -387,7 +441,7 @@ namespace LrcMusicPlayer
             await PlayList.LoadStorageFiles(selectedFiles, Playlist);
             stateTextBlock.Text = "Loading Complete";
             systemMediaControls.IsEnabled = true;
-            if (Playlist.CurrentIndex < 0) await SetNewMediaItem(Playlist.NextItem(playMode));
+            if (currentItemIndex < 0) await SetNewMediaItem(0);
         }
 
         private async void LoadFavoriteButton_Click(object sender, RoutedEventArgs e) {
@@ -407,7 +461,7 @@ namespace LrcMusicPlayer
                 Playlist = await PlayList.LoadFromFile(file);
                 itemListView.ItemsSource = Playlist.Items;
                 LoadFavoriteButton.Text = lableText;
-                await SetNewMediaItem(Playlist.NextItem(playMode));
+                await SetNewMediaItem(0);
                 stateTextBlock.Text = "Loading Complete";
             } catch (Exception) {
                 stateTextBlock.Text = "No File In Playlist";
@@ -427,7 +481,7 @@ namespace LrcMusicPlayer
             if (LoadFavoriteButton.Text != "\uE0A5  Favorite") LoadFavoriteButton.Text = "\uE0A5  Favorite";
             Playlist = await PlayList.LoadFromFile(selectedFile);
             itemListView.ItemsSource = Playlist.Items;
-            await SetNewMediaItem(Playlist.NextItem(playMode));
+            await SetNewMediaItem(0);
         }
 
         private async void SavePlaylistButton_Click(object sender, RoutedEventArgs e) {
@@ -450,19 +504,19 @@ namespace LrcMusicPlayer
             playModeButton.Label = data[1];
             switch (data[1]) {
                 case "Repeat Once":
-                    playMode = PlayList.PlayStyle.RepeatOnce;
+                    playMode = PlayStyle.RepeatOnce;
                     break;
                 case "Repeat All":
-                    playMode = PlayList.PlayStyle.RepeatAll;
+                    playMode = PlayStyle.RepeatAll;
                     break;
                 case "Shuffle":
-                    playMode = PlayList.PlayStyle.Shuffle;
+                    playMode = PlayStyle.Shuffle;
                     break;
                 case "Repeat Song":
-                    playMode = PlayList.PlayStyle.RepeatSong;
+                    playMode = PlayStyle.RepeatSong;
                     break;
                 case "Single Song":
-                    playMode = PlayList.PlayStyle.SingleSong;
+                    playMode = PlayStyle.SingleSong;
                     break;
             }
         }
@@ -473,7 +527,7 @@ namespace LrcMusicPlayer
             if (MyMediaElement.CurrentState == MediaElementState.Stopped) {
                 systemMediaControls.IsEnabled = true;
                 int selectedIndex = itemListView.SelectedIndex;
-                await SetNewMediaItem(Playlist.GoToItem(selectedIndex == -1 ? 0 : selectedIndex));
+                await SetNewMediaItem(selectedIndex == -1 ? 0 : selectedIndex);
             } else {
                 MyMediaElement.Play();
             }
@@ -511,35 +565,81 @@ namespace LrcMusicPlayer
             _timer.Tick -= _timer_Tick;
         }
 
-        private void MyMediaElement_MediaOpened(object sender, RoutedEventArgs e) {
-            if (Playlist.CurrentItem == null) return;
+        private async void MyMediaElement_MediaOpened(object sender, RoutedEventArgs e) {
+            if (currentItem == null) return;
             var totalTime = MyMediaElement.NaturalDuration.TimeSpan;
             MediaTimeTotalText.Text = totalTime.ToString("mm\\:ss");
             timelineSlider.Maximum = totalTime.TotalSeconds;
             timelineSlider.StepFrequency = 0.01;
 
             SetupTimer();
-            SetupLyric();
+            if (currentItem.LrcToken!="") {
+                lrcData = await PlayListItem.GetLyrics(currentItem.LrcToken);
+
+                var data = lrcData.Values.ToList();
+                data.Insert(0, "\n\n\n\n");
+                data.Add("\n\n\n\n");
+                foreach (var item in data) {
+                    TextBlock lyric = new TextBlock();
+                    lyric.Style = this.Resources["LyricTextStyle"] as Style;
+                    lyric.Text = item;
+                    lyric.LineHeight = 60;
+
+                    lyricsPanel.Children.Add(lyric);
+                }
+                lrcTimer.Start();
+            } else {
+                lrcData = null;
+            }
             MyMediaElement.Play();
         }
 
         private async void MyMediaElement_MediaEnded(object sender, RoutedEventArgs e) {
-            if (Playlist.CurrentItem == null) return;
-            await SetNewMediaItem(Playlist.NextItem(playMode));            
+            if (currentItem == null) return;
+            switch (playMode) {
+                case PlayStyle.RepeatOnce:
+                    if (currentItemIndex < Playlist.Items.Count - 1) {
+                        await SetNewMediaItem(currentItemIndex + 1);
+                    } else {
+                        MyMediaElement.Stop();
+                    }
+                    break;
+                case PlayStyle.RepeatAll: if (currentItemIndex < Playlist.Items.Count - 1) {
+                        await SetNewMediaItem(currentItemIndex + 1);
+                    } else {
+                        await SetNewMediaItem(0);
+                    }
+                    break;
+                case PlayStyle.Shuffle:
+                    Random r = new Random();
+                    int next = r.Next(Playlist.Items.Count);
+                    while (next == currentItemIndex) next = r.Next(Playlist.Items.Count);
+                    await SetNewMediaItem(next);
+                    break;
+                case PlayStyle.RepeatSong:
+                    MyMediaElement.Play();
+                    break;
+                case PlayStyle.SingleSong:
+                    MyMediaElement.Stop();
+                    break;
+                default:
+                    break;
+            }
+            
         }
 
         private void MyMediaElement_MediaFailed(object sender, ExceptionRoutedEventArgs e) {
             if (isThisPageActive) {
                 string errorMessage = String.Format(@"Cannot play {0} [""{1}""]." +
                     "\nPress Next or Previous to continue, or select new files to play.",
-                    Playlist.Items[Playlist.CurrentIndex].FileToken,
+                    Playlist.Items[currentItemIndex].FileToken,
                     e.ErrorMessage.Trim());
                 //rootPage.NotifyUser(errorMessage, NotifyType.ErrorMessage);
             }
         }
 
         private void MyMediaElement_CurrentStateChanged(object sender, RoutedEventArgs e) {
-            if (Playlist.CurrentItem == null) return;
+            if (currentItem == null) return;
             if (!isThisPageActive) {
                 return;
             }
@@ -702,13 +802,13 @@ namespace LrcMusicPlayer
                         case SystemMediaTransportControlsButton.Next:
                             //rootPage.NotifyUser("Next pressed", NotifyType.StatusMessage);
                             // range-checking will be performed in SetNewMediaItem()
-                            await SetNewMediaItem(Playlist.NextItem(playMode));
+                            await SetNewMediaItem(currentItemIndex + 1);
                             break;
 
                         case SystemMediaTransportControlsButton.Previous:
                             //rootPage.NotifyUser("Previous pressed", NotifyType.StatusMessage);
                             // range-checking will be performed in SetNewMediaItem()
-                            await SetNewMediaItem(Playlist.NextItem(playMode));
+                            await SetNewMediaItem(currentItemIndex - 1);
                             break;
 
                         // Insert additional case statements for other buttons you want to handle in your app.
@@ -726,8 +826,8 @@ namespace LrcMusicPlayer
         /// The media file being loaded.  This method will try to extract media metadata from the file for use in
         /// the system UI for media transport controls.
         /// </param>
-        private async void UpdateSystemMediaControlsDisplay() {
-            PlayListItem item = Playlist.CurrentItem;
+        private async void UpdateSystemMediaControlsDisplay(int itemIndex) {
+            PlayListItem item = Playlist.Items[itemIndex];
             MediaPlaybackType mediaType = MediaPlaybackType.Music;
             var updater = systemMediaControls.DisplayUpdater;
 
@@ -759,7 +859,7 @@ namespace LrcMusicPlayer
         private void pageRoot_Tapped(object sender, TappedRoutedEventArgs e) {
             if (!itemListViewIsTapped) {
                 if (MyAppBar.IsOpen) MyAppBar.IsSticky = MyAppBar.IsOpen = false;
-                if (Playlist.CurrentItem != null) itemListView.SelectedItem = Playlist.CurrentItem;
+                if (currentItem != null) itemListView.SelectedItem = currentItem;
             }
             itemListViewIsTapped = false;
         }
@@ -805,9 +905,9 @@ namespace LrcMusicPlayer
 
         private async void itemListView_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e) {
             if (e.OriginalSource.GetType().Name == "Grid" ||
-                itemListView.SelectedIndex == Playlist.CurrentIndex ||
+                itemListView.SelectedIndex == currentItemIndex ||
                 MyAppBar.IsOpen) return;
-            await SetNewMediaItem(Playlist.GoToItem(itemListView.SelectedIndex));
+            await SetNewMediaItem(itemListView.SelectedIndex);
         }
 
         private void itemListView_Holding(object sender, HoldingRoutedEventArgs e) {
@@ -822,27 +922,6 @@ namespace LrcMusicPlayer
         #endregion
 
         #region lyricsScrollView.Event
-        private async void SetupLyric() {
-            if (Playlist.CurrentItem.LrcToken != "") {
-                lrcData = await PlayListItem.GetLyrics(Playlist.CurrentItem.LrcToken);
-
-                var data = lrcData.Values.ToList();
-                data.Insert(0, "\n\n\n\n");
-                data.Add("\n\n\n\n");
-                foreach (var item in data) {
-                    TextBlock lyric = new TextBlock();
-                    lyric.Style = this.Resources["LyricTextStyle"] as Style;
-                    lyric.Text = item;
-                    lyric.LineHeight = 60;
-
-                    lyricsPanel.Children.Add(lyric);
-                }
-                lrcTimer.Start();
-            } else {
-                lrcData = null;
-            }
-        }
-
         private void lyricsScrollView_ViewChanging(object sender, ScrollViewerViewChangingEventArgs e) {
             if (!e.IsInertial) {
                 lyricFingerDown = true;
@@ -881,23 +960,25 @@ namespace LrcMusicPlayer
         /// <remarks>
         /// If the newItemIndex argument is out of range, it will be adjusted accordingly to stay in range.
         /// </remarks>
-        private async Task SetNewMediaItem(PlayListItem newItem) {
+        private async Task SetNewMediaItem(int newItemIndex) {
             if (!systemMediaControls.IsEnabled) systemMediaControls.IsEnabled = true;
             if (!MyMediaElement.AutoPlay) MyMediaElement.AutoPlay = true;
             if (!timelineSlider.IsEnabled) timelineSlider.IsEnabled = true;
             // enable Next button unless we're on last item of the playFileList
-            if (Playlist.CurrentIndex >= Playlist.Items.Count - 1) {
+            if (newItemIndex >= Playlist.Items.Count - 1) {
                 systemMediaControls.IsNextEnabled = false;
                 uiNextButton.Visibility = Visibility.Collapsed;
+                newItemIndex = Playlist.Items.Count - 1;
             } else {
                 systemMediaControls.IsNextEnabled = true;
                 uiNextButton.Visibility = Visibility.Visible;
             }
 
             // enable Previous button unless we're on first item of the playFileList
-            if (Playlist.CurrentIndex <= 0) {
+            if (newItemIndex <= 0) {
                 systemMediaControls.IsPreviousEnabled = false;
                 uiPrevButton.Visibility = Visibility.Collapsed;
+                newItemIndex = 0;
             } else {
                 systemMediaControls.IsPreviousEnabled = true;
                 uiPrevButton.Visibility = Visibility.Visible;
@@ -905,7 +986,12 @@ namespace LrcMusicPlayer
 
             // note that the Play, Pause and Stop buttons were already enabled via SetupSystemMediaTransportControls() 
             // invoked during this scenario page's OnNavigateToHandler()
-            StorageFile mediaFile = await newItem.GetFile();
+
+            currentItemIndex = itemListView.SelectedIndex = newItemIndex;
+            currentItem = Playlist.Items[newItemIndex];
+            itemListView.ScrollIntoView(currentItem, ScrollIntoViewAlignment.Leading);
+            StorageFile mediaFile = await currentItem.GetFile();
+
 
             lrcTimer.Stop();
             MyMediaElement.Tag = mediaFile.DisplayName;
@@ -913,6 +999,29 @@ namespace LrcMusicPlayer
             IRandomAccessStream stream = null;
             try {
                 stream = await mediaFile.OpenAsync(FileAccessMode.Read);
+                //if (mediaFile.FileType.ToLower() == ".flac") {
+                //    MemoryStream audioStream = new MemoryStream();
+                //    using (MemoryStream output = new MemoryStream())
+                //    using (WavWriter wav = new WavWriter(output))
+                //        if (IntPtr.Size == 8) {
+                //            using (FlacReader_x64 flac = new FlacReader_x64(stream.AsStreamForRead(), wav)) {
+                //                var s = new MemoryStream();
+                //                flac.Process();
+                //                output.Seek(0, SeekOrigin.Begin);
+                //                output.CopyTo(audioStream);
+                //                audioStream.Seek(0, SeekOrigin.Begin);
+                //            }
+                //        } else {
+                //            using (FlacReader_x86 flac = new FlacReader_x86(stream.AsStreamForRead(), wav)) {
+                //                var s = new MemoryStream();
+                //                flac.Process();
+                //                output.Seek(0, SeekOrigin.Begin);
+                //                output.CopyTo(audioStream);
+                //                audioStream.Seek(0, SeekOrigin.Begin);
+                //            }
+                //        }
+                //    stream = audioStream.AsRandomAccessStream();
+                //}
             } catch (Exception e) {
                 // User may have navigated away from this scenario page to another scenario page
                 // before the async operation completed.
@@ -941,7 +1050,7 @@ namespace LrcMusicPlayer
             } else {
                 stateTextBlock.Text = "Can not open media";
             }
-            UpdateSystemMediaControlsDisplay();
+            UpdateSystemMediaControlsDisplay(newItemIndex);
             lyricsPanel.Children.Clear();
         }
 
@@ -970,9 +1079,10 @@ namespace LrcMusicPlayer
 
         #region MediaTransport
         private async void uiButton_Click(object sender, RoutedEventArgs e) {
-            if (Playlist.CurrentItem == null) {
+            if (currentItem == null) {
                 if (itemListView.SelectedItem != null) {
-                    await SetNewMediaItem(Playlist.GoToItem(itemListView.SelectedIndex));
+                    currentItemIndex = itemListView.SelectedIndex;
+                    await SetNewMediaItem(currentItemIndex);
                 }
                 return;
             }
@@ -986,10 +1096,10 @@ namespace LrcMusicPlayer
                     MyMediaElement.Stop();
                     break;
                 case "uiNextButton":
-                    await SetNewMediaItem(Playlist.NextItem(playMode));
+                    await SetNewMediaItem(currentItemIndex + 1);
                     break;
                 case "uiPrevButton":
-                    await SetNewMediaItem(Playlist.NextItem(playMode));
+                    await SetNewMediaItem(currentItemIndex - 1);
                     break;
             }
         }

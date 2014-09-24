@@ -1,7 +1,6 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:local="using:LrcMusicPlayer"
-                    xmlns:common="using:LrcMusicPlayer.Common">
+                    xmlns:local="using:LrcMusicPlayer">
     <Style x:Key="CircleButtonStyle" TargetType="Button">
         <Setter Property="Foreground" Value="{StaticResource AppBarItemForegroundThemeBrush}"/>
         <Setter Property="VerticalAlignment" Value="Stretch"/>
@@ -933,5 +932,5 @@
         <Setter Property="Foreground" Value="#55FFFFFF"/>
         <Setter Property="FontSize" Value="24"/>
     </Style>
-    <common:MySliderValue x:Key="MySliderValue"/>
+    <local:MySliderValue x:Key="MySliderValue"/>
 </ResourceDictionary>

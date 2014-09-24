@@ -11,88 +11,24 @@ using Windows.Storage.AccessCache;
 
 namespace LrcMusicPlayer.Common
 {
+    enum PlayStyle
+    {
+        RepeatOnce,
+        RepeatAll,
+        Shuffle,
+        RepeatSong,
+        SingleSong
+    }
+
     public class PlayList
     {
         private ObservableCollection<PlayListItem> _items = new ObservableCollection<PlayListItem>();
         public ObservableCollection<PlayListItem> Items { get { return _items; } }
-
-        public int CurrentIndex { get { return _items.IndexOf(_currentItem); } }
-        public PlayListItem CurrentItem { get { return _currentItem; } }
-        private PlayListItem _currentItem;
-
-        private Queue<int> shuffleQueue = new Queue<int>();
-        private List<int> shufflePrevList = new List<int>();
-
         private StorageFile _playlistFile = null;
-        private IEnumerable<string> FileTokens {
+        public IEnumerable<string> FileTokens {
             get {
                 return _items.Select(c => c.FileToken)
-                    .Concat(_items.Select(c => c.LrcToken).Where(c => c != ""))
-                    .Distinct();
-            }
-        }
-
-        public PlayListItem GoToItem(int itemIndex) {
-            if (itemIndex < _items.Count && itemIndex >= 0) {
-                _currentItem = _items[itemIndex];
-                return _currentItem;
-            } else {
-                return null;
-            }
-        }
-
-        public PlayListItem NextItem(PlayStyle style) {
-            if (_currentItem == null) {
-                if (style == PlayStyle.Shuffle) {
-                    if (shuffleQueue.Count == 0) ShfflePlayList();
-                    _currentItem = _items[shuffleQueue.Dequeue()];
-                } else {
-                    _currentItem = _items[0];
-                }
-            } else {
-                int currentIndex = CurrentIndex;
-                switch (style) {
-                    case PlayStyle.RepeatOnce:
-                        shuffleQueue.Clear();
-                        if (currentIndex + 1 < _items.Count) _currentItem = _items[currentIndex + 1];
-                        else _currentItem = _items[0];
-                        break;
-                    case PlayStyle.RepeatAll:
-                        
-                        if (currentIndex + 1 < _items.Count) _currentItem = _items[currentIndex + 1];
-                        else _currentItem = null;
-                        break;
-                    case PlayStyle.Shuffle:
-                        if (shuffleQueue.Count == 0) ShfflePlayList();
-                        _currentItem = _currentItem = _items[shuffleQueue.Dequeue()];
-                        break;
-                    case PlayStyle.RepeatSong:
-                        shuffleQueue.Clear();
-                        break;
-                    case PlayStyle.SingleSong:
-                        shuffleQueue.Clear();
-                        _currentItem = null;
-                        break;
-                }
-                if (style != PlayStyle.Shuffle) {
-                    shuffleQueue.Clear();
-
-                }
-            }
-            return _currentItem;
-        }
-
-        private void ShfflePlayList() {
-            var shuffleIndexs = Enumerable.Range(0, _items.Count).ToArray();
-            Random r = new Random();
-            for (int i = shuffleIndexs.Length - 1; i > 0; i--) {
-                int j = (int)Math.Floor(r.NextDouble() * (i + 1));
-                int temp = shuffleIndexs[i];
-                shuffleIndexs[i] = shuffleIndexs[j];
-                shuffleIndexs[j] = temp;
-            }
-            foreach (var item in shuffleIndexs) {
-                shuffleQueue.Enqueue(item);
+                    .Union(_items.Select(c => c.LrcToken).Where(c => c != ""));
             }
         }
 
@@ -196,15 +132,6 @@ namespace LrcMusicPlayer.Common
             oldList._playlistFile = _playlistFile;
             oldList._items.Clear();
             foreach (var item in _items) oldList._items.Add(item);
-        }
-
-        public enum PlayStyle
-        {
-            RepeatOnce,
-            RepeatAll,
-            Shuffle,
-            RepeatSong,
-            SingleSong
         }
     }
 

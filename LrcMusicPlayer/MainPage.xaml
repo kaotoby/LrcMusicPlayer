@@ -105,12 +105,12 @@
                         AutomationProperties.AutomationId="BackButton"
                         AutomationProperties.ItemType="Navigation Button"/>
             <TextBlock x:Name="pageTitle" Style="{StaticResource HeaderTextBlockStyle}" Grid.Column="1" 
-                        IsHitTestVisible="false" TextWrapping="NoWrap" VerticalAlignment="Bottom" Margin="0,0,0,40" Text="L.M. Player"/>
+                        IsHitTestVisible="false" TextWrapping="NoWrap" VerticalAlignment="Bottom" Margin="0,0,0,40" Text="L.M. Player" FontFamily="Global User Interface"/>
         </Grid>
 
         <!-- Vertical scrolling item list -->
         <Grid Grid.ColumnSpan="2" Grid.RowSpan="4" Margin="0,140,0,40">
-            <common:MyListView
+            <local:MyListView
             x:Name="itemListView" SelectionMode="Single"
             AutomationProperties.AutomationId="ItemsListView"
             AutomationProperties.Name="Items"
@@ -124,22 +124,20 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="30"/>
                             </Grid.ColumnDefinitions>
-                                <Border Background="{ThemeResource ListViewItemPlaceholderBackgroundThemeBrush}" Width="80" Height="80">
-                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" AutomationProperties.Name="{Binding Title}"/>
-                                </Border>
+                            <Border Background="{ThemeResource ListViewItemPlaceholderBackgroundThemeBrush}" Width="80" Height="80">
+                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" AutomationProperties.Name="{Binding Title}"/>
+                            </Border>
                             <StackPanel Grid.Column="1" Margin="10,0,0,0">
                                 <TextBlock Text="{Binding Title}" TextWrapping="Wrap" FontWeight="Bold" LineStackingStrategy="BlockLineHeight"
-                                           LineHeight="20" MaxHeight="40" FontSize="16"/>
+                                           LineHeight="20" MaxHeight="40" FontSize="16" FontFamily="Global User Interface"/>
                                 <TextBlock Text="{Binding Artist}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontSize="14"/>
                                 <TextBlock Text="{Binding Album}"  TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontSize="11"/>
                             </StackPanel>
-                            <TextBlock Grid.Column="2" Text="12"  TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" FontSize="11" FontFamily="Global User Interface"/>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
-            </common:MyListView>
+            </local:MyListView>
         </Grid>
         <Grid x:Name="optionPanel" Grid.Row="3" Grid.ColumnSpan="2">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -179,7 +177,7 @@
                         <ColumnDefinition Width="500*"/>
                         <ColumnDefinition Width="60"/>
                     </Grid.ColumnDefinitions>
-                    <Grid Grid.Row="1" Grid.Column="1">
+                    <Grid Grid.Column="1" Grid.Row="1">
                         <Image x:Name="mainCoverImage" Source="Assets/Logo1000x1000.png"/>
                         <Image Source="Images/boarder.png" />
                     </Grid>
@@ -217,10 +215,8 @@
                     <Button x:Name="uiPlayPauseButton" HorizontalAlignment="Left" Style="{StaticResource CircleButtonStyle}" Content="&#xE102;" FontSize="36" MinHeight="80" Width="60" 
                         Click="uiButton_Click" BorderThickness="-5,-28,0,0" Margin="0,-7,0,0"/>
                 </Grid>
-                <Grid x:Name="sliderGrid" Grid.Column="1" Grid.Row="1">
-                    <Grid Height="15" VerticalAlignment="Top" Margin="0,8,0,0">
-                        <Slider x:Name="timelineSlider" Margin="0,-16,0,0" Width="{Binding Width, ElementName=sliderGrid, Mode=OneWay}" ValueChanged="timelineSlider_ValueChanged" ThumbToolTipValueConverter="{StaticResource MySliderValue}"/>
-                    </Grid>
+                <Grid x:Name="sliderGrid" Grid.Column="1" Grid.RowSpan="2">
+                    <Slider x:Name="timelineSlider" Margin="0,10,0,0" Width="{Binding Width, ElementName=sliderGrid, Mode=OneWay}" ValueChanged="timelineSlider_ValueChanged" ThumbToolTipValueConverter="{StaticResource MySliderValue}"/>
                 </Grid>
                 <Grid Grid.Column="1">
                     <TextBlock x:Name="MediaTimeNowText" Text="00:00" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalAlignment="Left"/>

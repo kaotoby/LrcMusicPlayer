@@ -20,8 +20,6 @@ namespace LrcMusicPlayer.Common
         public string Artist { get; set; }
         public string Album { get; set; }
 
-        public string IsCurrentCheckMark = "123434";
-
         public string FileToken { get { return _fileToken; } }
         private string _fileToken;
 
